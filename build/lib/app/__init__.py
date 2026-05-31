@@ -1,1 +1,0 @@
-"""WatchAgent application package."""
