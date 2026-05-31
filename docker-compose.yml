@@ -1,0 +1,18 @@
+# WatchAgent uses SQLite in-process and runs the poller as an in-process
+# background task inside the API container. There is therefore only ONE
+# service here: no separate database container and no separate poller service.
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # SQLite file lives on the persistent volume so data survives restarts.
+      WATCHAGENT_DB_PATH: ${WATCHAGENT_DB_PATH:-/data/watchagent.db}
+    volumes:
+      - watchagent-data:/data
+
+volumes:
+  watchagent-data:
