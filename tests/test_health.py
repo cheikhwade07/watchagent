@@ -3,16 +3,37 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.storage.repository import insert_reading
 
 client = TestClient(app)
 
 
-def test_health_returns_ok_contract():
+def test_health_returns_ok_contract_when_empty():
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
         "readings_stored": 0,
+        "events_stored": 0,
+    }
+
+
+def test_health_reports_real_reading_count():
+    n = 3
+    for i in range(n):
+        insert_reading(
+            city="Ottawa",
+            observed_at=f"2026-05-31T1{i}:00",
+            fetched_at="2026-05-31T16:00:00+00:00",
+            temperature_2m=20.0 + i,
+        )
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "readings_stored": n,
         "events_stored": 0,
     }
