@@ -9,8 +9,13 @@ services:
     env_file:
       - .env
     environment:
-      # SQLite file lives on the persistent volume so data survives restarts.
-      WATCHAGENT_DB_PATH: ${WATCHAGENT_DB_PATH:-/data/watchagent.db}
+      # Force the SQLite file onto the mounted /data named volume so data
+      # survives `docker compose down && up`. This is a LITERAL value (not
+      # interpolated from the host .env): an explicit environment value
+      # overrides env_file, so whatever WATCHAGENT_DB_PATH the host .env sets
+      # (e.g. ./data/... for local runs) cannot leak in and redirect the
+      # container's DB back onto the ephemeral container layer.
+      WATCHAGENT_DB_PATH: /data/watchagent.db
     volumes:
       - watchagent-data:/data
 

@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.logging import configure_logging
 from app.poller.scheduler import start_poller, stop_poller
 from app.routers import events, health, readings
 from app.storage.db import init_db
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
     settings = get_settings()
     init_db()
 

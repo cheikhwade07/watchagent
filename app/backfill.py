@@ -36,6 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
+from app.logging import configure_logging
 from app.poller.client import CITIES, CURRENT_FIELDS, City, CurrentReading
 from app.poller.scheduler import detect_and_store
 from app.storage.db import init_db
@@ -224,10 +225,7 @@ async def run_backfill() -> tuple[int, int, int, int]:
 
 
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    configure_logging()
     asyncio.run(run_backfill())
 
 
