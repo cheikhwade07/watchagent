@@ -1,0 +1,18 @@
+---
+description: Shared shape for FastAPI list endpoints (city/limit/named-key, repository-only reads) and the pinned /health contract
+globs: app/routers/**
+alwaysApply: false
+---
+
+# API endpoint conventions
+
+Every list endpoint accepts an optional `city` filter and a `limit` query param
+(default 50, positive int, validated via `Query(gt=0)`), returns results
+most-recent-first wrapped in a named key (`{"readings": [...]}`,
+`{"events": [...]}`), and reads through the repository/storage layer — routers
+never touch SQL directly. The `/health` contract is fixed and must not drift:
+`{"status": "ok", "readings_stored": <int>, "events_stored": <int>}`.
+
+**Rationale:** consistent endpoint shape keeps the API predictable for
+consumers, and the `/health` contract is pinned because external checks depend
+on its exact shape.

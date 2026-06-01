@@ -1,0 +1,19 @@
+---
+description: Raw sqlite3 + parameterized SQL discipline, DB-layer dedup, and read-ordering split for the storage layer
+globs: app/storage/**
+alwaysApply: false
+---
+
+# Storage SQL discipline
+
+Use Python's built-in `sqlite3` only — no ORM. Schemas are hand-written
+`CREATE TABLE IF NOT EXISTS` statements kept in `db.py`. All queries must be
+parameterized with `?` placeholders — never string-format values into SQL.
+Deduplication is enforced at the database layer via `UNIQUE` constraints plus
+`INSERT OR IGNORE` (readings) or `ON CONFLICT ... DO UPDATE` (events), not by
+check-then-insert in Python. Reads feeding the detection pipeline return
+readings oldest-first (chronological); API read paths return most-recent-first.
+
+**Rationale:** the schema is small enough that explicit SQL is clearer than an
+ORM and showcases the dedup constraint directly; the ordering split matters
+because detectors require chronological input while the API wants newest-first.

@@ -1,0 +1,21 @@
+---
+description: How the in-process weather poller isolates per-city fetch failures and keeps the poll loop alive across cycles
+globs: app/poller/**
+alwaysApply: false
+---
+
+# Poller error handling
+
+When a weather fetch fails for a city (network error, non-200 response, or
+malformed payload), log a WARNING including the city name and the error, then
+skip that city for the current cycle and continue with the others. Never raise
+or let one city's failure abort the cycle or crash the poller; the poll loop
+keeps running across cycles regardless of individual failures. New readings are
+inserted via the repository's idempotent `insert_reading` (`INSERT OR IGNORE` on
+`UNIQUE(city, observed_at)`); poller code never writes SQL directly. The poller
+runs in-process within the FastAPI lifespan (single writer), which is why DB
+writes need no cross-process locking.
+
+**Rationale:** resilience over correctness-of-completeness — a monitoring poller
+must survive transient upstream failures and keep collecting, rather than crash
+on one bad response.

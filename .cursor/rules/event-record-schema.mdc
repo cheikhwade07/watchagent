@@ -1,0 +1,21 @@
+---
+description: The Event record schema, dedup identity, and upsert persistence contract for detected weather events
+globs: app/detection/**,app/storage/events.py
+alwaysApply: false
+---
+
+# Event record schema
+
+Every event a detector produces is an `Event` with: `city`; `event_type` (one of
+`temp_anomaly`, `precipitation`, `frontal_passage`, `apparent_gap`); `started_at`;
+`ended_at` (`None` while ongoing); `severity` (`None` where the detector does not
+grade severity); a plain-language `reason` string explaining WHY it fired; and an
+optional `detail` dict of supporting numbers. Dedup identity is
+`(city, event_type, started_at)`. Persist via `upsert_event`
+(`INSERT ... ON CONFLICT DO UPDATE`), which fills `ended_at` when an open event
+later closes — never insert a duplicate. `detail` is JSON-encoded on write,
+decoded on read.
+
+**Rationale:** the `reason` string and dedup identity are what make events
+self-explanatory and idempotent across recompute cycles — required because
+detection re-runs over history every poll.

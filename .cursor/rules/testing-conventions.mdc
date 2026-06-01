@@ -1,0 +1,20 @@
+---
+description: Network-free, isolated-DB test conventions and synthetic pure-function detector tests as the core of the suite
+globs: tests/**
+alwaysApply: false
+---
+
+# Testing conventions
+
+Tests make NO real network calls: mock the Open-Meteo HTTP layer (httpx
+`MockTransport`) and set `POLLER_ENABLED=false` so the live poller never starts
+during tests. Each test uses an isolated temporary SQLite database. Detection
+logic is tested with hand-constructed synthetic reading sequences that assert
+exactly which events fire and which do NOT — the application code must stay
+testable this way: detectors are pure functions (readings in, events out) with
+no I/O, and thresholds/windows are named constants. Detection tests are the most
+important tests in the suite.
+
+**Rationale:** deterministic, network-free tests are required for reliable CI,
+and controlled synthetic sequences are the only way to prove the detection logic
+fires precisely as designed.
