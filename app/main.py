@@ -13,7 +13,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.poller.scheduler import start_poller, stop_poller
-from app.routers import health, readings
+from app.routers import events, health, readings
 from app.storage.db import init_db
 
 logger = logging.getLogger(__name__)
@@ -41,4 +41,4 @@ app = FastAPI(title="WatchAgent", lifespan=lifespan)
 
 app.include_router(health.router)
 app.include_router(readings.router)
-# Phase 4+: app.include_router(events.router) once the events table exists.
+app.include_router(events.router)
