@@ -2,7 +2,7 @@
 
 Provides a connection factory that points at the configured database file with
 WAL journaling and foreign-key enforcement enabled, plus a schema initializer
-that creates the readings table on startup.
+that creates the readings and events tables on startup.
 """
 
 from __future__ import annotations
@@ -28,6 +28,26 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 """
 
+# Hand-written events schema. UNIQUE(city, event_type, started_at) is the event
+# identity / dedup key: detection is recomputed each poll cycle, and this
+# constraint (paired with the upsert in the events repository) ensures the same
+# event is never duplicated across cycles. severity is nullable (frontal /
+# apparent events are not graded), ended_at is nullable while an event is still
+# ongoing, and detail holds a JSON-encoded dict (SQLite has no dict type).
+CREATE_EVENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    severity TEXT,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    reason TEXT NOT NULL,
+    detail TEXT,
+    UNIQUE(city, event_type, started_at)
+);
+"""
+
 
 def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     """Open a SQLite connection with WAL mode and dict-like rows.
@@ -48,10 +68,11 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
 
 
 def init_db(db_path: str | None = None) -> None:
-    """Create the readings table if it does not already exist."""
+    """Create the readings and events tables if they do not already exist."""
     conn = get_connection(db_path)
     try:
         conn.execute(CREATE_READINGS_TABLE)
+        conn.execute(CREATE_EVENTS_TABLE)
         conn.commit()
     finally:
         conn.close()
