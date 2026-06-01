@@ -7,9 +7,13 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      # Optional: a clean clone has no .env (it is gitignored). config.py has
+      # defaults for every var and WATCHAGENT_DB_PATH is set explicitly below,
+      # so a missing .env must NOT abort `docker compose up`.
+      - path: .env
+        required: false
     environment:
-      # Force the SQLite file onto the mounted /data named volume so data
+      # Force the SQLite file onto the bind-mounted /data directory so data
       # survives `docker compose down && up`. This is a LITERAL value (not
       # interpolated from the host .env): an explicit environment value
       # overrides env_file, so whatever WATCHAGENT_DB_PATH the host .env sets
@@ -17,7 +21,9 @@ services:
       # container's DB back onto the ephemeral container layer.
       WATCHAGENT_DB_PATH: /data/watchagent.db
     volumes:
-      - watchagent-data:/data
-
-volumes:
-  watchagent-data:
+      # Bind mount (not a named volume) so the container's /data and the host's
+      # ./data are the SAME directory. This keeps persistence across recreate
+      # (the DB file lives on the host at ./data/watchagent.db) AND lets the
+      # host-run analysis/replay skills read the same DB the Dockerized app
+      # writes.
+      - ./data:/data
