@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/events")
 def list_events(
     city: str | None = Query(default=None),
-    limit: int = Query(default=50, gt=0),
+    limit: int = Query(default=50, gt=0, le=1000),
 ) -> dict:
     events = get_events(city=city, limit=limit)
     return {"events": events}

@@ -104,6 +104,18 @@ def test_events_rejects_non_positive_limit():
     assert response.status_code == 422
 
 
+def test_events_rejects_limit_above_cap():
+    # Above the 1000 cap is rejected; a normal/at-cap limit is accepted.
+    over = client.get("/events", params={"limit": 1001})
+    assert over.status_code == 422
+
+    at_cap = client.get("/events", params={"limit": 1000})
+    assert at_cap.status_code == 200
+
+    normal = client.get("/events", params={"limit": 50})
+    assert normal.status_code == 200
+
+
 def test_events_detail_decoded_as_object_not_string():
     _seed()
     response = client.get("/events", params={"city": "Ottawa"})

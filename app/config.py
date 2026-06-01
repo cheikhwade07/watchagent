@@ -18,9 +18,32 @@ from pathlib import Path
 DEFAULT_DB_PATH = "./data/watchagent.db"
 DEFAULT_POLL_INTERVAL_SECONDS = 120
 
+# Smallest interval we will ever sleep between poll cycles. A 0/negative value
+# would turn asyncio.sleep into a tight loop hammering the upstream API.
+MIN_POLL_INTERVAL_SECONDS = 1
+
 
 def _env_bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_poll_interval() -> int:
+    """Parse WATCHAGENT_POLL_INTERVAL_SECONDS defensively.
+
+    get_settings() runs on every DB operation, so a malformed value must never
+    raise here; on a missing/invalid/non-positive value we fall back to
+    DEFAULT_POLL_INTERVAL_SECONDS and always enforce a sane minimum.
+    """
+    raw = os.environ.get(
+        "WATCHAGENT_POLL_INTERVAL_SECONDS", str(DEFAULT_POLL_INTERVAL_SECONDS)
+    )
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = DEFAULT_POLL_INTERVAL_SECONDS
+    if value < MIN_POLL_INTERVAL_SECONDS:
+        value = DEFAULT_POLL_INTERVAL_SECONDS
+    return value
 
 
 @dataclass(frozen=True)
@@ -30,14 +53,7 @@ class Settings:
             "WATCHAGENT_DB_PATH", DEFAULT_DB_PATH
         )
     )
-    poll_interval_seconds: int = field(
-        default_factory=lambda: int(
-            os.environ.get(
-                "WATCHAGENT_POLL_INTERVAL_SECONDS",
-                str(DEFAULT_POLL_INTERVAL_SECONDS),
-            )
-        )
-    )
+    poll_interval_seconds: int = field(default_factory=_env_poll_interval)
     poller_enabled: bool = field(
         default_factory=lambda: _env_bool(
             os.environ.get("POLLER_ENABLED", "true")

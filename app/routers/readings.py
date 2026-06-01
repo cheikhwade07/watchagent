@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/readings")
 def list_readings(
     city: str | None = Query(default=None),
-    limit: int = Query(default=50, gt=0),
+    limit: int = Query(default=50, gt=0, le=1000),
 ) -> dict:
     readings = get_readings(city=city, limit=limit)
     return {"readings": readings}
