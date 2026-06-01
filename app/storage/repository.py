@@ -110,7 +110,10 @@ def count_readings(db_path: str | None = None) -> int:
         conn.close()
 
 
-def get_readings_for_detection(db_path: str | None = None) -> list[Reading]:
+def get_readings_for_detection(
+    db_path: str | None = None,
+    per_city: int | None = None,
+) -> list[Reading]:
     """Return recent readings per city, OLDEST-FIRST, for the detection pipeline.
 
     This is intentionally a SEPARATE fetch from :func:`get_readings`. The API
@@ -120,12 +123,19 @@ def get_readings_for_detection(db_path: str | None = None) -> list[Reading]:
     machines. Passing DESC order would be wrong, so here we explicitly re-sort
     ascending rather than relying on any incidental ordering.
 
-    Per city we take the most recent ``DETECTION_HISTORY_PER_CITY`` readings
-    (an inner ORDER BY observed_at DESC + LIMIT) and then re-order that slice
-    ascending, so the detectors receive the freshest history in chronological
-    order. ``Reading`` objects (not dicts) are returned so detectors can use
-    attribute access (the ``ReadingLike`` protocol).
+    Per city we take the most recent ``per_city`` readings (an inner ORDER BY
+    observed_at DESC + LIMIT) and then re-order that slice ascending, so the
+    detectors receive the freshest history in chronological order. ``Reading``
+    objects (not dicts) are returned so detectors can use attribute access (the
+    ``ReadingLike`` protocol).
+
+    ``per_city`` defaults to ``DETECTION_HISTORY_PER_CITY`` so the live poll
+    cycle is unchanged. It is exposed as an override purely so the one-shot
+    historical backfill (``app.backfill``) can widen the window to cover its
+    full multi-day import in a single detection pass — the live poller never
+    passes it, so the default cadence-bound behaviour is preserved.
     """
+    limit = per_city if per_city is not None else DETECTION_HISTORY_PER_CITY
     conn = get_connection(db_path)
     try:
         cities = [
@@ -152,7 +162,7 @@ def get_readings_for_detection(db_path: str | None = None) -> list[Reading]:
                 )
                 ORDER BY observed_at ASC
                 """,
-                (city, DETECTION_HISTORY_PER_CITY),
+                (city, limit),
             )
             readings.extend(Reading.from_row(row) for row in cursor.fetchall())
         return readings

@@ -50,7 +50,7 @@ async def poll_once(client: httpx.AsyncClient) -> int:
     return inserted
 
 
-def detect_and_store() -> tuple[int, int, int]:
+def detect_and_store(per_city: int | None = None) -> tuple[int, int, int]:
     """Recompute detection over recent stored readings and persist results.
 
     Option A (recompute): every cycle we re-read the recent reading history
@@ -61,10 +61,15 @@ def detect_and_store() -> tuple[int, int, int]:
     is not duplicated, and one that closes in a later cycle has its ``ended_at``
     (and other mutable fields) refreshed in place.
 
+    ``per_city`` is forwarded to ``get_readings_for_detection``. The live poll
+    cycle calls this with no argument (so the default per-city bound applies and
+    its behaviour is unchanged); only the one-shot historical backfill passes a
+    wider value to detect over its full imported window.
+
     Returns:
         (detected, inserted, updated) counts for the cycle.
     """
-    readings = get_readings_for_detection()
+    readings = get_readings_for_detection(per_city=per_city)
     events = run_detectors(readings)
 
     inserted = 0
