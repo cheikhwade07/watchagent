@@ -17,26 +17,26 @@ readings and detected events through a REST API.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    FC["Open-Meteo Forecast API<br/>/v1/forecast"]
-    AR["Open-Meteo Archive API<br/>/v1/archive"]
-    POLL["Live poller<br/>in-process, FastAPI lifespan, ~120s"]
-    BACK["One-shot backfill<br/>python -m app.backfill"]
-    DET["Detection pipeline<br/>run_detectors (4 detectors)"]
-    DB[("SQLite<br/>./data/watchagent.db (bind mount)")]
-    API["FastAPI<br/>/health, /readings, /events"]
-    SKILLS[".cursor skills<br/>data-analysis, detection-replay"]
+flowchart TB
+    FC["Forecast API<br/>/v1/forecast"]
+    AR["Archive API<br/>/v1/archive"]
+    POLL["Live poller<br/>lifespan, ~120s"]
+    BACK["Backfill<br/>one-shot"]
+    DET["Detection<br/>4 detectors"]
+    DB[("SQLite<br/>bind mount")]
+    API["API<br/>/health /readings /events"]
+    SKILLS[".cursor skills<br/>analysis, replay"]
 
-    FC -->|"current conditions"| POLL
-    AR -->|"~7 days hourly"| BACK
-    POLL -->|"INSERT OR IGNORE (dedup)"| DB
-    BACK -->|"INSERT OR IGNORE (dedup)"| DB
-    POLL -.->|"after each cycle"| DET
-    BACK -.->|"after import"| DET
-    DET -->|"read recent readings"| DB
-    DET -->|"upsert events"| DB
-    DB -->|"read newest-first"| API
-    DB -->|"read-only (query_only)"| SKILLS
+    FC -->|current| POLL
+    AR -->|"~7d hourly"| BACK
+    POLL -->|after cycle| DET
+    BACK -->|after import| DET
+    POLL -->|dedup insert| DB
+    BACK -->|dedup insert| DB
+    DET -->|read recent| DB
+    DET -->|upsert events| DB
+    DB -->|newest-first| API
+    DB -->|read-only| SKILLS
 ```
 
 The live poller (an asyncio task in the API's lifespan) fetches each city from
@@ -45,6 +45,42 @@ detection pipeline over recent history and upserts any events. The one-shot
 backfill does the same against the archive API to seed ~7 days at once. The
 three read endpoints and the host-run `.cursor` skills both read the single
 bind-mounted SQLite file — one writer, many readers.
+
+### Data Model
+
+Two hand-written tables (`app/storage/db.py`):
+
+```sql
+CREATE TABLE IF NOT EXISTS readings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL,
+    observed_at TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    temperature_2m REAL,
+    apparent_temperature REAL,
+    precipitation REAL,
+    wind_speed_10m REAL,
+    weather_code INTEGER,
+    UNIQUE(city, observed_at)
+);
+```
+
+```sql
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    severity TEXT,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    reason TEXT NOT NULL,
+    detail TEXT,
+    UNIQUE(city, event_type, started_at)
+);
+```
+
+Dedup is enforced by these `UNIQUE` constraints at the database layer (not in
+application code), which is the concrete reason raw SQL was chosen over an ORM.
 
 ## Setup & Running
 
